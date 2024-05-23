@@ -33,11 +33,11 @@ def set_target_gun():
 
 @app.route('/api/compare', methods=['POST'])
 def compare_guns():
-    guessed_gun_id = request.json['guessed_gun_id']
+    guessed_gun_hash = request.json['guessed_gun_hash']
     guns = get_legendary_guns()
     logger.debug(f"Guns available for comparison: {len(guns)}")
     try:
-        guessed_gun = next(gun for gun in guns if gun['hash'] == guessed_gun_id)
+        guessed_gun = next(gun for gun in guns if gun['hash'] == guessed_gun_hash)
         logger.debug(f'Guessed Gun: {guessed_gun}')  # Debugging line to log the guessed gun
 
         result = {
@@ -53,7 +53,7 @@ def compare_guns():
         }
         return jsonify(result)
     except StopIteration:
-        logger.error(f"Guessed gun with ID {guessed_gun_id} not found")
+        logger.error(f"Guessed gun with hash {guessed_gun_hash} not found")
         return jsonify({'error': 'Guessed gun not found'}), 400
 
 if __name__ == '__main__':
