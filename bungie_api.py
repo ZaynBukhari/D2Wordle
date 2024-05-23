@@ -12,8 +12,18 @@ API_KEY = '63513bb851474407919eb9dba2758d02'
 ITEMS_JSON_URL = 'https://www.bungie.net/common/destiny2_content/json/en/DestinyInventoryItemDefinition-b480d136-fa1d-4c23-b04f-3b978d639fda.json'
 LOOKUP_PATH = 'weapon_lookup.json'
 LEGENDARY_TIER_HASH = 4008398120  # The tierTypeHash for legendary items
+WATERMARK_LABELS_PATH = 'watermark_labels.json'
+BASE_URL = 'https://www.bungie.net'
 
-# Helper functions
+EMPTY_DEEPSIGHT_SOCKET_HASH = 1961918267  # Hash for Empty Deepsight Socket
+
+def load_watermark_labels():
+    if os.path.exists(WATERMARK_LABELS_PATH):
+        with open(WATERMARK_LABELS_PATH, 'r') as file:
+            watermark_labels = json.load(file)
+            return watermark_labels
+    return {}
+
 def fetch_socket_details(socket_hash):
     try:
         response = requests.get(
@@ -38,6 +48,7 @@ def build_weapon_lookup():
 
     weapon_lookup = {}
     socket_cache = {}
+    watermark_labels = load_watermark_labels()
 
     response = requests.get(ITEMS_JSON_URL)
     response.raise_for_status()
@@ -85,25 +96,33 @@ def build_weapon_lookup():
             if 'sockets' in item and 'socketEntries' in item['sockets']:
                 socket_entries = item['sockets']['socketEntries']
                 archetype_socket_hash = socket_entries[0].get('singleInitialItemHash') if len(socket_entries) > 0 else None
-                deepsight_socket_hash = socket_entries[12].get('singleInitialItemHash') if len(socket_entries) > 12 else None
 
-                if archetype_socket_hash in socket_cache and 'Frame' in socket_cache[archetype_socket_hash]:
+                # Only proceed if the initial condition passes
+                if archetype_socket_hash in socket_cache:
                     archetype_name = socket_cache[archetype_socket_hash]
                     damage_type_name = get_damage_type_name(item.get('defaultDamageType', None))
-                    craftable = deepsight_socket_hash in socket_cache and socket_cache[deepsight_socket_hash] == 'Empty Deepsight Socket'
+
+                    # Check if any of the sockets have the "Empty Deepsight Socket" hash
+                    craftable = any(entry.get('singleInitialItemHash') == EMPTY_DEEPSIGHT_SOCKET_HASH for entry in socket_entries)
+                    watermark = item.get('iconWatermark', '')
+                    season = watermark_labels.get(watermark, 'Unknown')
 
                     if archetype_name != "Empty Frames Socket" and damage_type_name != 'Unknown':
                         weapon_lookup[item['hash']] = {
                             'name': item['displayProperties']['name'],
                             'icon': item['displayProperties'].get('icon', ''),
-                            'iconWatermark': item.get('iconWatermark', ''),
+                            'iconWatermark': watermark,
                             'type': item['itemTypeDisplayName'],
                             'archetype': archetype_name,
                             'damageType': damage_type_name,
                             'ammoType': get_ammo_type_name(item['equippingBlock'].get('ammoType', None)) if 'equippingBlock' in item else 'Unknown',
-                            'craftable': craftable
+                            'craftable': craftable,
+                            'season': season
                         }
-                        logger.debug(f'Weapon hash {item["hash"]} added with archetype {archetype_name}, craftable {craftable}, name {item["displayProperties"]["name"]}')
+                        logger.debug(f'Weapon hash {item["hash"]} added with archetype {archetype_name}, craftable {craftable}, name {item["displayProperties"]["name"]}, season {season}')
+                        logger.debug(f'Icon URL: {BASE_URL}{item["displayProperties"].get("icon", "")}')
+                        if watermark:
+                            logger.debug(f'Watermark URL: {BASE_URL}{watermark}')
 
     with open(LOOKUP_PATH, 'w') as file:
         json.dump(weapon_lookup, file, indent=2)
@@ -124,7 +143,8 @@ def get_legendary_guns():
                 'archetype': item['archetype'],
                 'damageType': item['damageType'],
                 'ammoType': item['ammoType'],
-                'craftable': item['craftable']
+                'craftable': item['craftable'],
+                'season': item['season']
             }
             for hash, item in weapon_lookup.items()
             if item['type'] != 'Unknown' and item['ammoType'] != 'Unknown'
