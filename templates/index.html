@@ -17,6 +17,9 @@
             background-color: #ffffff;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+        h1 {
+            text-align: center;
+        }
         #search-bar {
             width: 100%;
             padding: 10px;
@@ -47,23 +50,17 @@
             flex-shrink: 0;
         }
         .weapon-icon {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+            width: 96px;
+            height: 96px;
         }
         .watermark-icon {
             position: absolute;
             top: 0;
-            right: 0;
-            width: 100%;
-            height: 100%;
+            left: 0;
+            width: 96px;
+            height: 96px;
             object-fit: contain;
-        }
-        .result-header {
-            margin: 20px 0 10px 0;
-            font-size: 1.2em;
-            font-weight: bold;
-            text-align: center;
+            opacity: 1; /* Adjust opacity as needed */
         }
         .result {
             display: flex;
@@ -75,26 +72,11 @@
             background-color: #fff;
         }
         .result .icon-container {
-            position: relative;
-            width: 96px;
-            height: 96px;
-            margin-right: 20px;
+            margin-right: 10px;
             flex-shrink: 0;
         }
-        .result .weapon-icon {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .result .watermark-icon {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
         .result div {
+            margin-right: 20px;
             flex-grow: 1;
         }
         .result p {
@@ -102,27 +84,46 @@
             padding: 5px 0;
             color: #333;
         }
+        .correct {
+            background-color: green;
+            color: white;
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .wrong {
+            background-color: red;
+            color: white;
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 3px;
+            display: inline-block;
+        }
         .info-section {
             display: flex;
             justify-content: space-between;
-            margin-top: 10px;
+            width: 100%;
         }
-        .info-box {
+        .info-section div {
             flex: 1;
             text-align: center;
-            padding: 10px;
-            margin: 0 5px;
+            padding: 5px;
+        }
+        #win-screen {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
             border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
         }
-        .info-box.correct {
-            background-color: green;
-            color: white;
-        }
-        .info-box.wrong {
-            background-color: red;
-            color: white;
-        }
-        #win-modal {
+        .overlay {
             display: none;
             position: fixed;
             top: 0;
@@ -130,29 +131,35 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
+            z-index: 999;
         }
-        #win-screen {
-            background-color: #fff;
-            border-radius: 5px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-        }
-        .copy-btn, .close-btn {
+        .copy-btn {
             padding: 10px;
+            background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             margin-top: 10px;
         }
-        .copy-btn {
-            background-color: #4CAF50;
+        .gun-header {
+            display: flex;
+            align-items: center;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            width: 100%;
+            margin-bottom: 10px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
         }
-        .close-btn {
-            background-color: #f44336;
+        .gun-header .icon-container {
+            margin-right: 20px;
+        }
+        .gun-details {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: 100%;
         }
     </style>
 </head>
@@ -162,15 +169,13 @@
         <input type="text" id="search-bar" placeholder="Search for a gun">
         <ul id="guns-list"></ul>
         <div id="result"></div>
-        <div id="win-modal">
-            <div id="win-screen">
-                <h2 id="win-message"></h2>
-                <pre id="result-pattern"></pre>
-                <button class="copy-btn" onclick="copyPattern()">Copy Result</button>
-                <button class="close-btn" onclick="closeModal()">Close</button>
-            </div>
-        </div>
     </div>
+    <div id="win-screen">
+        <h2 id="win-message"></h2>
+        <pre id="result-pattern"></pre>
+        <button class="copy-btn" onclick="copyPattern()">Copy Result</button>
+    </div>
+    <div class="overlay" id="overlay"></div>
 
     <script>
         let gunsData = [];
@@ -206,15 +211,25 @@
 
         async function compareGun(guessedGunId) {
             try {
+                if (!guessedGunId) {
+                    console.error('No guessedGunId provided');
+                    return;
+                }
+                const payload = { guessed_gun_id: guessedGunId };
+                console.log('Sending payload:', JSON.stringify(payload));
+
                 const response = await fetch('/api/compare', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ guessed_gun_id: guessedGunId })
+                    body: JSON.stringify(payload)
                 });
+
                 if (!response.ok) {
-                    throw new Error('Network response was not ok ' + response.statusText);
+                    const errorData = await response.json();
+                    console.error('Error comparing guns:', errorData.error);
+                    return;
                 }
                 const result = await response.json();
                 console.log('Comparison result:', result);
@@ -225,38 +240,62 @@
         }
 
         function updateGunList(searchTerm) {
-            const filteredGuns = gunsData.filter(gun => gun.name.toLowerCase().includes(searchTerm));
             const gunsList = document.getElementById('guns-list');
             gunsList.innerHTML = '';
+            if (searchTerm === '') {
+                return;
+            }
+            const filteredGuns = gunsData.filter(gun => gun.name.toLowerCase().includes(searchTerm));
             filteredGuns.forEach(gun => {
                 const li = document.createElement('li');
+                li.dataset.hash = gun.hash; // Add data attribute for hash
                 li.innerHTML = `
-                    <div class="icon-container">
-                        <img src="https://www.bungie.net${gun.icon}" alt="${gun.name}" class="weapon-icon">
-                        ${gun.iconWatermark ? `<img src="https://www.bungie.net${gun.iconWatermark}" alt="Watermark" class="watermark-icon">` : ''}
+                    <div class="gun-header">
+                        <div class="icon-container">
+                            <img src="https://www.bungie.net${gun.icon}" alt="${gun.name}" class="weapon-icon">
+                            ${gun.iconWatermark ? `<img src="https://www.bungie.net${gun.iconWatermark}" alt="Watermark" class="watermark-icon">` : ''}
+                        </div>
+                        <div class="gun-details">
+                            <div><strong>${gun.name}</strong></div>
+                            <div class="info-section">
+                                <div>Weapon Type: ${gun.type}</div>
+                                <div>Archetype: ${gun.archetype}</div>
+                                <div>Damage Type: ${gun.damageType}</div>
+                                <div>Ammo Type: ${gun.ammoType}</div>
+                                <div>Craftable: ${gun.craftable ? 'Yes' : 'No'}</div>
+                                <div>Season: ${gun.season}</div>
+                            </div>
+                        </div>
                     </div>
-                    ${gun.name}
                 `;
                 li.addEventListener('click', async function() {
+                    const guessedGunId = this.dataset.hash;
+                    console.log('Clicked on gun with hash:', guessedGunId);
                     if (attempts < maxAttempts) {
-                        const result = await compareGun(gun.hash);
+                        const result = await compareGun(guessedGunId);
+                        if (!result) {
+                            return;
+                        }
                         const resultDiv = document.getElementById('result');
                         attempts++;
                         let attemptPattern = '';
 
                         resultDiv.innerHTML += `
-                            <div class="result-header">${result.name}</div>
                             <div class="result">
                                 <div class="icon-container">
                                     <img src="https://www.bungie.net${result.icon}" alt="${result.name}" class="weapon-icon">
                                     ${result.iconWatermark ? `<img src="https://www.bungie.net${result.iconWatermark}" alt="Watermark" class="watermark-icon">` : ''}
                                 </div>
-                                <div class="info-section">
-                                    <div class="info-box ${result.weaponType.correct ? 'correct' : 'wrong'}">Weapon Type: ${result.weaponType.actual}</div>
-                                    <div class="info-box ${result.archetype.correct ? 'correct' : 'wrong'}">Archetype: ${result.archetype.actual}</div>
-                                    <div class="info-box ${result.damageType.correct ? 'correct' : 'wrong'}">Damage Type: ${result.damageType.actual}</div>
-                                    <div class="info-box ${result.ammoType.correct ? 'correct' : 'wrong'}">Ammo Type: ${result.ammoType.actual}</div>
-                                    <div class="info-box ${result.craftable.correct ? 'correct' : 'wrong'}">Craftable: ${result.craftable.actual ? 'Yes' : 'No'}</div>
+                                <div>
+                                    <p class="gun-name">${result.name}</p>
+                                    <div class="info-section">
+                                        <div class="${result.weaponType.correct ? 'correct' : 'wrong'}">Weapon Type: ${result.weaponType.actual}</div>
+                                        <div class="${result.archetype.correct ? 'correct' : 'wrong'}">Archetype: ${result.archetype.actual}</div>
+                                        <div class="${result.damageType.correct ? 'correct' : 'wrong'}">Damage Type: ${result.damageType.actual}</div>
+                                        <div class="${result.ammoType.correct ? 'correct' : 'wrong'}">Ammo Type: ${result.ammoType.actual}</div>
+                                        <div class="${result.craftable.correct ? 'correct' : 'wrong'}">Craftable: ${result.craftable.actual ? 'Yes' : 'No'}</div>
+                                        <div class="${result.season.correct ? 'correct' : 'wrong'}">Season: ${result.season.actual}</div>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -266,31 +305,36 @@
                         attemptPattern += result.damageType.correct ? '🟩' : '🟥';
                         attemptPattern += result.ammoType.correct ? '🟩' : '🟥';
                         attemptPattern += result.craftable.correct ? '🟩' : '🟥';
+                        attemptPattern += result.season.correct ? '🟩' : '🟥';
                         resultPattern += `${attemptPattern}\n`;
 
-                        if (result.weaponType.correct && result.archetype.correct && result.damageType.correct && result.ammoType.correct && result.craftable.correct) {
+                        if (result.weaponType.correct && result.archetype.correct && result.damageType.correct && result.ammoType.correct && result.craftable.correct && result.season.correct) {
                             showWinScreen(true);
                         } else if (attempts >= maxAttempts) {
                             showWinScreen(false);
                         }
                     }
+
+                    // Reset search bar and gun list
+                    document.getElementById('search-bar').value = '';
+                    gunsList.innerHTML = '';
                 });
                 gunsList.appendChild(li);
             });
         }
 
         function showWinScreen(won) {
-            const winModal = document.getElementById('win-modal');
+            const winScreen = document.getElementById('win-screen');
+            const overlay = document.getElementById('overlay');
             const winMessage = document.getElementById('win-message');
             const resultPatternElement = document.getElementById('result-pattern');
 
-            winModal.style.display = 'flex';
+            winScreen.style.display = 'block';
+            overlay.style.display = 'block';
             winMessage.textContent = won ? `You won in ${attempts} attempts!` : 'You ran out of attempts!';
             resultPatternElement.textContent = `D2Wordle ${attempts}/${maxAttempts}\n\n${resultPattern}`;
-        }
 
-        function closeModal() {
-            document.getElementById('win-modal').style.display = 'none';
+            document.getElementById('search-bar').disabled = true;
         }
 
         function copyPattern() {
