@@ -142,6 +142,15 @@
             cursor: pointer;
             margin-top: 10px;
         }
+        .close-btn {
+            padding: 10px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
         .gun-header {
             display: flex;
             align-items: center;
@@ -174,6 +183,7 @@
         <h2 id="win-message"></h2>
         <pre id="result-pattern"></pre>
         <button class="copy-btn" onclick="copyPattern()">Copy Result</button>
+        <button class="close-btn" onclick="closeWinScreen()">Close</button>
     </div>
     <div class="overlay" id="overlay"></div>
 
@@ -203,19 +213,20 @@
                     throw new Error('Network response was not ok ' + response.statusText);
                 }
                 const targetGun = await response.json();
-                console.log('Target Gun Set:', targetGun);
+                console.log('Target Gun Set:', targetGun);  // Log target weapon to console
+                window.targetGun = targetGun;  // Store the target gun in a global variable for debugging
             } catch (error) {
                 console.error('Error setting target gun:', error);
             }
         }
 
-        async function compareGun(guessedGunId) {
+        async function compareGun(guessedGunHash) {
             try {
-                if (!guessedGunId) {
-                    console.error('No guessedGunId provided');
+                if (!guessedGunHash) {
+                    console.error('No guessedGunHash provided');
                     return;
                 }
-                const payload = { guessed_gun_id: guessedGunId };
+                const payload = { guessed_gun_hash: guessedGunHash };
                 console.log('Sending payload:', JSON.stringify(payload));
 
                 const response = await fetch('/api/compare', {
@@ -269,10 +280,10 @@
                     </div>
                 `;
                 li.addEventListener('click', async function() {
-                    const guessedGunId = this.dataset.hash;
-                    console.log('Clicked on gun with hash:', guessedGunId);
+                    const guessedGunHash = this.dataset.hash;
+                    console.log('Clicked on gun with hash:', guessedGunHash);
                     if (attempts < maxAttempts) {
-                        const result = await compareGun(guessedGunId);
+                        const result = await compareGun(guessedGunHash);
                         if (!result) {
                             return;
                         }
@@ -335,6 +346,16 @@
             resultPatternElement.textContent = `D2Wordle ${attempts}/${maxAttempts}\n\n${resultPattern}`;
 
             document.getElementById('search-bar').disabled = true;
+        }
+
+        function closeWinScreen() {
+            const winScreen = document.getElementById('win-screen');
+            const overlay = document.getElementById('overlay');
+
+            winScreen.style.display = 'none';
+            overlay.style.display = 'none';
+
+            document.getElementById('search-bar').disabled = false;
         }
 
         function copyPattern() {
