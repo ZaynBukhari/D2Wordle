@@ -49,6 +49,7 @@ def compare_guns():
             'damageType': {'actual': guessed_gun['damageType'], 'correct': guessed_gun['damageType'] == TARGET_GUN['damageType']},
             'ammoType': {'actual': guessed_gun['ammoType'], 'correct': guessed_gun['ammoType'] == TARGET_GUN['ammoType']},
             'craftable': {'actual': guessed_gun['craftable'], 'correct': guessed_gun['craftable'] == TARGET_GUN['craftable']},
+            'season': {'actual': guessed_gun['season'], 'correct': guessed_gun['season'] == TARGET_GUN['season']},
         }
         return jsonify(result)
     except StopIteration:
